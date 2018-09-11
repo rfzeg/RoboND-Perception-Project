@@ -83,7 +83,7 @@ def pcl_callback(pcl_msg):
     # Note: using 1 is a poor choice of leaf size
     # Units of the voxel size (or leaf size) are in meters
     # Experiment and find the appropriate size!
-    LEAF_SIZE = 0.01   
+    LEAF_SIZE = 0.005
 
     # Set the voxel (or leaf) size  
     vox.set_leaf_size(LEAF_SIZE, LEAF_SIZE, LEAF_SIZE)
@@ -101,18 +101,31 @@ def pcl_callback(pcl_msg):
     # Here axis_min and max is the height with respect to the ground
     filter_axis = 'z'
     passthrough.set_filter_field_name(filter_axis)
-    axis_min = 0.76 # to retain only the tabletop and the objects sitting on the table
-    axis_max = 1.1
+    axis_min = 0.6 # to retain only the tabletop and the objects sitting on the table
+    axis_max = 1.0 # to filter out the upper part of the cloud
     passthrough.set_filter_limits(axis_min, axis_max)
 
     # Finally use the filter function to obtain the resultant point cloud. 
-    cloud_filtered = passthrough.filter()
+    cloud_passthrough_1 = passthrough.filter()
+
+    # Create a PassThrough filter object.
+    passthrough_x = cloud_passthrough_1.make_passthrough_filter()
+    # Assign axis and range to the passthrough filter object.
+    # Here axis_min and max is the height with respect to the ground
+    filter_axis = 'x'
+    passthrough_x.set_filter_field_name(filter_axis)
+    x_axis_min = 0.35 # to filter out the closest part of the cloud
+    x_axis_max = 1.5 # to filter out the farest part of the cloud
+    passthrough_x.set_filter_limits(x_axis_min, x_axis_max)
+    # Finally use the filter function to obtain the resultant point cloud. 
+    cloud_passthrough_2 = passthrough_x.filter()
+
 
     ## RANSAC plane segmentation (was TODO)
     # Identifys points that belong to a particular model (plane, cylinder, box, etc.)
 
     # Create the segmentation object
-    seg = cloud_filtered.make_segmenter()
+    seg = cloud_passthrough_2.make_segmenter()
 
     # Set the model you wish to fit 
     seg.set_model_type(pcl.SACMODEL_PLANE)
@@ -129,9 +142,9 @@ def pcl_callback(pcl_msg):
 
     ## Extract inliers and outliers (was TODO)
     # Allows to extract points from a point cloud by providing a list of indices
-    cloud_table = cloud_filtered.extract(inliers, negative=False)
+    cloud_table = cloud_passthrough_2.extract(inliers, negative=False) ###############
     # With the negative flag True we retrieve the points that do not fit the RANSAC model
-    cloud_objects = cloud_filtered.extract(inliers, negative=True)
+    cloud_objects = cloud_passthrough_2.extract(inliers, negative=True) ##################
     
     ## Euclidean Clustering (was TODO)
     white_cloud = XYZRGB_to_XYZ(cloud_objects) # Apply function to convert XYZRGB to XYZ
