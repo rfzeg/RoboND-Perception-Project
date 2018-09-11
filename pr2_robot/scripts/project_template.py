@@ -55,27 +55,29 @@ def pcl_callback(pcl_msg):
     # Takes in a ROS message of type PointCloud2 and converts it to PCL PointXYZRGB format
     pcl_data = ros_to_pcl(pcl_msg)
 
-    ## TODO: Statistical Outlier Filtering
+    ## Statistical Outlier Filtering (was TODO)
     # Much like the previous filters, we start by creating a filter object: 
     outlier_filter = pcl_data.make_statistical_outlier_filter()
 
     # Set the number of neighboring points to analyze for any given point
-    outlier_filter.set_mean_k(50)
+    outlier_filter.set_mean_k(10)
 
     # Set threshold scale factor
-    x = 1.0
+    # All points who have a distance larger than X standard deviation of the mean distance
+    # to the query point will be marked as outliers and removed
+    x = 0.01
 
     # Any point with a mean distance larger than global (mean distance+x*std_dev) will be considered outlier
     outlier_filter.set_std_dev_mul_thresh(x)
 
     # Finally call the filter function for magic
-    cloud_filtered = outlier_filter.filter()
+    cloud_outlier_filtered = outlier_filter.filter()
 
     ## Voxel Grid filter
     # A voxel grid filter allows to downsample the data
 
     # Create a VoxelGrid filter object for our input point cloud
-    vox = cloud_filtered.make_voxel_grid_filter()
+    vox = cloud_outlier_filtered.make_voxel_grid_filter()
 
     # Choose a voxel (also known as leaf) size
     # Note: using 1 is a poor choice of leaf size
@@ -170,12 +172,19 @@ def pcl_callback(pcl_msg):
     ## Convert PCL data to ROS messages (was TODO)
     ros_cloud_objects = pcl_to_ros(cloud_objects)
     ros_cloud_table = pcl_to_ros(cloud_table)
-    ros_cluster_cloud = pcl_to_ros(cluster_cloud)
+    # Cloud containing all clusters (objects), each with unique color:
+    ros_cluster_cloud = pcl_to_ros(cluster_cloud) 
+    ros_outlier_filtered_cloud = pcl_to_ros(cloud_outlier_filtered)
+
 
     ## Publish ROS messages (was TODO)
     pcl_objects_pub.publish(ros_cloud_objects)
     pcl_table_pub.publish(ros_cloud_table)
+    # Cloud containing all clusters (objects), each with unique color:
     pcl_cluster_pub.publish(ros_cluster_cloud)
+    stat_outlier_filter_pub.publish(ros_outlier_filtered_cloud)
+
+
 
 # Exercise-3 TODOs:
 
@@ -224,10 +233,11 @@ def pcl_callback(pcl_msg):
     # Suggested location for where to invoke your pr2_mover() function within pcl_callback()
     # Could add some logic to determine whether or not your object detections are robust
     # before calling pr2_mover()
-    try:
-        pr2_mover(detected_objects_list)
-    except rospy.ROSInterruptException:
-        pass
+    #try:
+    #    pr2_mover(detected_objects)
+    #    #pr2_mover(detected_objects_list)
+    #except rospy.ROSInterruptException:
+    #    pass
 
 # function to load parameters and request PickPlace service
 def pr2_mover(object_list):
@@ -270,15 +280,16 @@ def pr2_mover(object_list):
 
 if __name__ == '__main__':
 
-   # ROS node initialization (was TODO)
+    ## ROS node initialization (was TODO)
     rospy.init_node('object_recognition', anonymous=True)
 
-    # Create Subscribers (was TODO)
+    ## Create Subscribers (was TODO)
     pcl_sub = rospy.Subscriber("/pr2/world/points", pc2.PointCloud2, pcl_callback, queue_size=1)
 
-    # Create Publishers 
+    ## Create Publishers 
     pcl_objects_pub = rospy.Publisher("/pcl_objects", PointCloud2, queue_size=1)
     pcl_table_pub = rospy.Publisher("/pcl_table", PointCloud2, queue_size=1)
+    # Cloud containing all clusters (objects), each with unique color:
     pcl_cluster_pub = rospy.Publisher("/pcl_cluster", PointCloud2, queue_size=1)
     # Here you need to create two new publishers (was TODO)
     # Call them object_markers_pub and detected_objects_pub
@@ -286,8 +297,9 @@ if __name__ == '__main__':
     # Message Types "Marker" and "DetectedObjectsArray" , respectively
     object_markers_pub = rospy.Publisher("/object_markers", Marker, queue_size=1)
     detected_objects_pub = rospy.Publisher("/detected_objects", DetectedObjectsArray, queue_size=1)
+    stat_outlier_filter_pub = rospy.Publisher("/pcl_stat_outlier_filter", PointCloud2, queue_size=1)
 
-    # Load Model From disk (was TODO)
+    ## Load Model From disk (was TODO)
     model = pickle.load(open('model.sav', 'rb'))
     clf = model['classifier']
     encoder = LabelEncoder()
@@ -297,6 +309,6 @@ if __name__ == '__main__':
     # Initialize color_list
     get_color_list.color_list = []
 
-    # Spin while node is not shutdown (was TODO)
+    ## Spin while node is not shutdown (was TODO)
     while not rospy.is_shutdown():
         rospy.spin()
