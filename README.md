@@ -82,7 +82,48 @@ You can launch the project scenario like this:
 $ roslaunch pr2_robot pick_place_project.launch
 ```
 # Required Steps for a Passing Submission:
-1. Extract features and train an SVM model on new objects (see `pick_list_*.yaml` in `/pr2_robot/config/` for the list of models you'll be trying to identify). 
+1. Extract features and train an SVM model on new objects (see `pick_list_*.yaml` in `/pr2_robot/config/` for the list of models you'll be trying to identify).
+** Generate Features: **
+To generate features, first launch the training.launch file to bring up the Gazebo environment:
+```$ roslaunch sensor_stick training.launch```
+Next, in a new terminal, run the capture_features.py script to capture and save features for each of the objects in the environment. 
+This script spawns each object in 20 random orientations.
+The script was modified to include following models:
+- biscuits
+- book
+- eraser
+- glue
+- snacks
+- soap
+- soap2
+- sticky_notes
+
+After that you run the train_svm.py script to train an SVM classifier on your labeled set of features.
+``` $ rosrun sensor_stick train_svm.py ```
+
+
+Features in Training Set: 160
+Invalid Features in Training set: 0
+Scores: [ 0.875    0.96875  0.96875  0.96875  0.96875]
+Accuracy: 0.95 (+/- 0.08)
+accuracy score: 0.95
+
+The plots that show the relative accuracy of your classifier for the various objects:
+![demo-1](https://user-images.githubusercontent.com/20687560/28748231-46b5b912-7467-11e7-8778-3095172b7b19.png)
+**Confusion matrix**
+
+Running the above command will also result in your trained model being saved in a model.sav file.
+**Note:** This model.sav file will be saved in the catkin_ws folder.
+
+To test with the project, first run:
+``` $ roslaunch pr2_robot pick_place_project.launch ```
+
+and then in another terminal, run your object recognition node:
+``` $ rosrun pr2_robot project_template.py ```
+
+**Note:** keep in mind that the model.sav file needs to be in the same directory where you run this!
+**Note2:** chmod +x project_template.py
+
 2. Write a ROS node and subscribe to `/pr2/world/points` topic. This topic contains noisy point cloud data that you must work with.
 3. Use filtering and RANSAC plane fitting to isolate the objects of interest from the rest of the scene.
 4. Apply Euclidean clustering to create separate clusters for individual items.
