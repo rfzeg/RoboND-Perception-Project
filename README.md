@@ -260,7 +260,103 @@ This part of the code was mainly developed during Perception Exercise-3.
 
 
 7. Calculate the centroid (average in x, y and z) of the set of points belonging to that each object.
-8. Create ROS messages containing the details of each object (name, pick_pose, etc.) and write these messages out to `.yaml` files, one for each of the 3 scenarios (`test1-3.world` in `/pr2_robot/worlds/`).  See the example `output.yaml` for details on what the output should look like.  
+```python
+    ## Loop through the pick list (was TODO)
+    # Loop over our list using a plain for-in loop
+    for index, item in enumerate(object_list_param):
+
+        print "========== NEW ITERATION OVER PICK UP LIST ==========" # for debugging      
+        ## Parse parameters into individual variables (was TODO)
+        # object_list_param can be parsed to obtain object names and associated group
+        object_name = object_list_param[index]['name']
+        object_group = object_list_param[index]['group'] # will be either green or red
+        # print object_name # for debugging
+
+        ## Get the PointCloud for a given object and obtain it's centroid (was TODO)
+        try:
+            # Find the position of the current object from the pick up list inside the list of detected_objects
+            # Get index in a list of objects by attribute            
+            idx = [ x.label for x in object_list ].index(object_name)
+        except ValueError:
+            print "Object in pick-up list was not detected: {}".format(object_name)
+            print "Continue with other objects in pick up list."
+            continue
+        print "Object to pick up: {}".format(object_name) # for debugging
+        print "Index in list of detected objects (object_list): {}".format(idx) # for debugging
+        # Use that position to retrieve the associated point cloud of the object
+        pcl = object_list[idx].cloud
+        labels.append(object_name)
+        points_arr = ros_to_pcl(pcl).to_array()
+        centroids.append(np.mean(points_arr, axis=0)[:3])
+```
+
+8. Create ROS messages containing the details of each object (name, pick_pose, etc.) and write these messages out to `.yaml` files, one for each of the 3 scenarios (`test1-3.world` in `/pr2_robot/worlds/`).  
+```python
+        ## Pick pose, calculated pose of recognized object's centroid (was TODO)
+        # Initialize an empty pose message
+        pick_pose = Pose()
+
+        # Fill in appropriate fields, access last object in centroids list
+        # Recast to native Python float type using np.asscalar()
+        pick_pose.position.x = np.asscalar(centroids[-1][0])
+        pick_pose.position.y = np.asscalar(centroids[-1][1])
+        pick_pose.position.z = np.asscalar(centroids[-1][2])
+        print "Centroid/Position of last object added to list: {0}, {1}, {2}".format(pick_pose.position.x,pick_pose.position.y,pick_pose.position.z) # for debugging
+     
+        ## Create and fill in message variable for the name of the object (was TODO)
+        # Initialize a variable
+        msg_object_name = String()
+        # Populate the data field
+        msg_object_name.data = object_name
+
+        ## Get the position for a given dropbox (same as other TODO)
+        # Search a list of dictionaries and return a selected value in selected dictionary 
+        selected_entry = [item for item in dropbox_obj_param if item['group'] == object_group][0]
+        dropbox_position = selected_entry.get('position')
+        print "Position extracted from yaml file: {}".format(dropbox_position) # for debugging
+      
+        ## Create 'place_pose' or object placement pose for the object (was TODO)
+        # Initialize an empty pose message
+        place_pose = Pose()
+        # Fill in appropriate fields
+        place_pose.position.x = dropbox_position[0]
+        place_pose.position.y = dropbox_position[1]
+        place_pose.position.z = dropbox_position[2] 
+
+        ## Assign the arm to be used for pick_place (was TODO)
+        # Name of the arm can be either right/green or left/red
+        # Initialize a variable
+        which_arm = String()
+        # Populate the data field
+        if object_group == 'green':
+            which_arm.data = 'right' 
+        else:
+            which_arm.data = 'left'
+        print "Arm: {}".format(which_arm.data) # for debugging
+
+        ## Create and fill in other message variables
+
+        ## The test scene number (either 1, 2 or 3) (was TODO)
+        # Initialize the test_scene_num variable
+        test_scene_num = Int32()
+        # Get/Read parameters of dropbox positions
+        test_scene = rospy.get_param('/test_scene_num') # parameter name
+        # Populate the data field of that variable:
+        test_scene_num.data = test_scene
+        print "Test Scene Number: {}".format(test_scene_num.data) # for debugging
+
+        ## Populate various ROS messages
+        yaml_dict = make_yaml_dict(test_scene_num, which_arm, msg_object_name, pick_pose, place_pose)
+        dict_list.append(yaml_dict)
+
+        # Wait for 'pick_place_routine' service to come up
+        rospy.wait_for_service('pick_place_routine')
+```
+See the block below for details on how the output (output_1.yaml) looks like:
+```
+
+```
+
 9. Submit a link to your GitHub repo for the project or the Python code for your perception pipeline and your output `.yaml` files (3 `.yaml` files, one for each test world).  You must have correctly identified 100% of objects from `pick_list_1.yaml` for `test1.world`, 80% of items from `pick_list_2.yaml` for `test2.world` and 75% of items from `pick_list_3.yaml` in `test3.world`.
 
 # Extra Challenges: Complete the Pick & Place
