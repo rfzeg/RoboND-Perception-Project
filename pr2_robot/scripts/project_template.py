@@ -251,47 +251,138 @@ def pcl_callback(pcl_msg):
     # Suggested location for where to invoke your pr2_mover() function within pcl_callback()
     # Could add some logic to determine whether or not your object detections are robust
     # before calling pr2_mover()
-    #try:
-    #   pr2_mover(detected_objects)
-    #except rospy.ROSInterruptException:
-    #    pass
+    try:
+       pr2_mover(detected_objects)
+    except rospy.ROSInterruptException:
+        pass
 
 # function to load parameters and request PickPlace service
 def pr2_mover(object_list):
 
-    # TODO: Initialize variables
+    ## Initialize variables (was TODO)
+    labels = []
+    centroids = [] # to be list of tuples (x, y, z)
+    ## Create a list of dictionaries (made with make_yaml_dict()) for later output to yaml format (was TODO)
+    dict_list = []
 
-    # TODO: Get/Read parameters
-
-    # TODO: Parse parameters into individual variables
+    ## Get/Read parameters (was TODO)
+    # Since the header of the pick_list_* file is object_list,
+    # that is the parameter name under which is loaded
+    object_list_param = rospy.get_param('/object_list') # parameter name
+    # Get/Read parameters of dropbox positions
+    dropbox_obj_param = rospy.get_param('/dropbox') # header of the dropbox.yaml file is dropbox
 
     # TODO: Rotate PR2 in place to capture side tables for the collision map
 
-    # TODO: Loop through the pick list
+    ## Loop through the pick list (was TODO)
+    # Loop over our list using a plain for-in loop
+    for index, item in enumerate(object_list_param):
 
-        # TODO: Get the PointCloud for a given object and obtain it's centroid
+        print "========== NEW ITERATION OVER PICK UP LIST ==========" # for debugging      
+        ## Parse parameters into individual variables (was TODO)
+        # object_list_param can be parsed to obtain object names and associated group
+        object_name = object_list_param[index]['name']
+        object_group = object_list_param[index]['group'] # will be either green or red
+        # print object_name # for debugging
 
-        # TODO: Create 'place_pose' for the object
+        ## Get the PointCloud for a given object and obtain it's centroid (was TODO)
+        try:
+            # Find the position of the current object from the pick up list inside the list of detected_objects
+            # Get index in a list of objects by attribute            
+            idx = [ x.label for x in object_list ].index(object_name)
+        except ValueError:
+            print "Object in pick-up list was not detected: {}".format(object_name)
+            print "Continue with other objects in pick up list."
+            continue
+        print "Object to pick up: {}".format(object_name) # for debugging
+        print "Index in list of detected objects (object_list): {}".format(idx) # for debugging
+        # Use that position to retrieve the associated point cloud of the object
+        pcl = object_list[idx].cloud
+        labels.append(object_name)
+        points_arr = ros_to_pcl(pcl).to_array()
+        centroids.append(np.mean(points_arr, axis=0)[:3])
 
-        # TODO: Assign the arm to be used for pick_place
+        ## Pick pose, calculated pose of recognized object's centroid (was TODO)
+        # Initialize an empty pose message
+        pick_pose = Pose()
 
-        # TODO: Create a list of dictionaries (made with make_yaml_dict()) for later output to yaml format
+        # WARNING: ROS messages expect native Python data types but having computed centroids as above your list centroids will be of type numpy.float64
+        # To recast to native Python float type you can use np.asscalar()
+
+        # Fill in appropriate fields, access last object in centroids list
+        # Recast to native Python float type using np.asscalar()
+        pick_pose.position.x = np.asscalar(centroids[-1][0])
+        pick_pose.position.y = np.asscalar(centroids[-1][1])
+        pick_pose.position.z = np.asscalar(centroids[-1][2])
+        print "Centroid/Position of last object added to list: {0}, {1}, {2}".format(pick_pose.position.x,pick_pose.position.y,pick_pose.position.z) # for debugging
+
+        ## Create and fill in message variable for the name of the object (was TODO)
+        # Initialize a variable
+        msg_object_name = String()
+        # Populate the data field
+        msg_object_name.data = object_name
+
+        ## Get the position for a given dropbox (same as other TODO)
+        # Search a list of dictionaries and return a selected value in selected dictionary 
+        selected_entry = [item for item in dropbox_obj_param if item['group'] == object_group][0]
+        dropbox_position = selected_entry.get('position')
+        print "Position extracted from yaml file: {}".format(dropbox_position) # for debugging
+      
+        ## Create 'place_pose' or object placement pose for the object (was TODO)
+        # Initialize an empty pose message
+        place_pose = Pose()
+        # Fill in appropriate fields
+        place_pose.position.x = dropbox_position[0]
+        place_pose.position.y = dropbox_position[1]
+        place_pose.position.z = dropbox_position[2]
+
+        ## Assign the arm to be used for pick_place (was TODO)
+        # Name of the arm can be either right/green or left/red
+        # Initialize a variable
+        which_arm = String()
+        # Populate the data field
+        if object_group == 'green':
+            which_arm.data = 'right' 
+        else:
+            which_arm.data = 'left'
+        print "Arm: {}".format(which_arm.data) # for debugging
+
+        ## Create and fill in other message variables
+
+        ## The test scene number (either 1, 2 or 3) (was TODO)
+        # Initialize the test_scene_num variable
+        test_scene_num = Int32()
+        # Get/Read parameters of dropbox positions
+        test_scene = rospy.get_param('/test_scene_num') # parameter name
+        # Populate the data field of that variable:
+        test_scene_num.data = test_scene
+        print "Test Scene Number: {}".format(test_scene_num.data) # for debugging
+
+        ## Populate various ROS messages
+        yaml_dict = make_yaml_dict(test_scene_num, which_arm, msg_object_name, pick_pose, place_pose)
+        dict_list.append(yaml_dict)
 
         # Wait for 'pick_place_routine' service to come up
         rospy.wait_for_service('pick_place_routine')
 
-        try:
-            pick_place_routine = rospy.ServiceProxy('pick_place_routine', PickPlace)
 
-            # TODO: Insert your message variables to be sent as a service request
-            resp = pick_place_routine(TEST_SCENE_NUM, OBJECT_NAME, WHICH_ARM, PICK_POSE, PLACE_POSE)
+        #try:
+        #    pick_place_routine = rospy.ServiceProxy('pick_place_routine', PickPlace)
 
-            print ("Response: ",resp.success)
+        #    ## Insert your message variables to be sent as a service request (was TODO)
+        #    resp = pick_place_routine(test_scene_num, msg_object_name, which_arm, pick_pose, place_pose)
+        #    print ("Response: ",resp.success)
 
-        except rospy.ServiceException, e:
-            print "Service call failed: %s"%e
+        #except rospy.ServiceException, e:
+        #    print "Service call failed: %s"%e
 
-    # TODO: Output your request parameters into output yaml file
+    ## end of for loop ##    
+
+    ## Output your request parameters into output yaml file (was TODO)
+    # yaml filenames: output_1.yaml, output_2.yaml, and output_3.yaml
+    yaml_filename = 'output_'+str(test_scene)+'.yaml'
+    send_to_yaml(yaml_filename, dict_list) # list of dictionaries
+    print "Saved output yaml file."
 
 
 
