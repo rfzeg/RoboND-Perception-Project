@@ -11,15 +11,15 @@ from sensor_stick.features import compute_normal_histograms
 from visualization_msgs.msg import Marker
 from sensor_stick.marker_tools import *
 from sensor_stick.msg import DetectedObjectsArray
-from sensor_stick.msg import DetectedObject
+from sensor_stick.msg import DetectedObject # message type DetectedObject
 from sensor_stick.pcl_helper import *
 
 import rospy
-import tf
-from geometry_msgs.msg import Pose
+import tf  # or from tf.transformations import quaternion_from_euler
+from geometry_msgs.msg import Pose # for sending the pick pose and place pose
 from std_msgs.msg import Float64
-from std_msgs.msg import Int32
-from std_msgs.msg import String
+from std_msgs.msg import Int32 # for sending the test scene number
+from std_msgs.msg import String # for sending the object name
 from pr2_robot.srv import *
 from rospy_message_converter import message_converter
 import yaml
@@ -48,6 +48,9 @@ def send_to_yaml(yaml_filename, dict_list):
 
 # Callback function for your Point Cloud Subscriber
 def pcl_callback(pcl_msg):
+
+    print ""
+    print "========== RECEIVED NEW POINT CLOUD MESSAGE ==========" # for debugging
 
 # Exercise-2 TODOs:
 
@@ -142,9 +145,9 @@ def pcl_callback(pcl_msg):
 
     ## Extract inliers and outliers (was TODO)
     # Allows to extract points from a point cloud by providing a list of indices
-    cloud_table = cloud_passthrough_2.extract(inliers, negative=False) ###############
+    cloud_table = cloud_passthrough_2.extract(inliers, negative=False)
     # With the negative flag True we retrieve the points that do not fit the RANSAC model
-    cloud_objects = cloud_passthrough_2.extract(inliers, negative=True) ##################
+    cloud_objects = cloud_passthrough_2.extract(inliers, negative=True)
     
     ## Euclidean Clustering (was TODO)
     white_cloud = XYZRGB_to_XYZ(cloud_objects) # Apply function to convert XYZRGB to XYZ
@@ -178,7 +181,7 @@ def pcl_callback(pcl_msg):
                                             white_cloud[indice][2],
                                              rgb_to_float(cluster_color[j])])
 
-    #Create new cloud containing all clusters, each with unique color
+    # Create new cloud containing all clusters, each with unique color
     cluster_cloud = pcl.PointCloud_PointXYZRGB()
     cluster_cloud.from_list(color_cluster_point_list)
 
@@ -188,7 +191,6 @@ def pcl_callback(pcl_msg):
     # Cloud containing all clusters (objects), each with unique color:
     ros_cluster_cloud = pcl_to_ros(cluster_cloud) 
     ros_outlier_filtered_cloud = pcl_to_ros(cloud_outlier_filtered)
-
 
     ## Publish ROS messages (was TODO)
     pcl_objects_pub.publish(ros_cloud_objects)
@@ -208,7 +210,7 @@ def pcl_callback(pcl_msg):
     # Classify the clusters! (loop through each detected cluster one at a time)
 
     for index, pts_list in enumerate(cluster_indices):
-        # Grab the points for the cluster from the extracted outliers (cloud_objects)
+        # Grab the points for the cluster from the extracted objects (cloud_objects)
         pcl_cluster = cloud_objects.extract(pts_list)
         # Convert the cluster from pcl to ROS using helper function (was TODO)
         ros_cluster = pcl_to_ros(pcl_cluster)
@@ -232,23 +234,25 @@ def pcl_callback(pcl_msg):
         object_markers_pub.publish(make_label(label,label_pos, index))
 
         # Add the detected object to the list of detected objects
-        do = DetectedObject()
+        # Declare a object of message type DetectedObject:
+        do = DetectedObject() 
         do.label = label
         do.cloud = ros_cluster
+        # A list of detected objects (of message type DetectedObject)
         detected_objects.append(do)
 
+    ## end of for loop ##
+    # Prints list of detected objects:
     rospy.loginfo('Detected {} objects: {}'.format(len(detected_objects_labels), detected_objects_labels))
 
     # Publish the list of detected objects
-    # This is the output you'll need to complete the upcoming project!
     detected_objects_pub.publish(detected_objects)
 
     # Suggested location for where to invoke your pr2_mover() function within pcl_callback()
     # Could add some logic to determine whether or not your object detections are robust
     # before calling pr2_mover()
     #try:
-    #    pr2_mover(detected_objects)
-    #    #pr2_mover(detected_objects_list)
+    #   pr2_mover(detected_objects)
     #except rospy.ROSInterruptException:
     #    pass
 
