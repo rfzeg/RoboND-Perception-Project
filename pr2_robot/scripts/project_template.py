@@ -366,15 +366,15 @@ def pr2_mover(object_list):
         rospy.wait_for_service('pick_place_routine')
 
 
-        #try:
-        #    pick_place_routine = rospy.ServiceProxy('pick_place_routine', PickPlace)
+        try:
+            pick_place_routine = rospy.ServiceProxy('pick_place_routine', PickPlace)
 
-        #    ## Insert your message variables to be sent as a service request (was TODO)
-        #    resp = pick_place_routine(test_scene_num, msg_object_name, which_arm, pick_pose, place_pose)
-        #    print ("Response: ",resp.success)
+            ## Insert your message variables to be sent as a service request (was TODO)
+            resp = pick_place_routine(test_scene_num, msg_object_name, which_arm, pick_pose, place_pose)
+            print ("Response: ",resp.success)
 
-        #except rospy.ServiceException, e:
-        #    print "Service call failed: %s"%e
+        except rospy.ServiceException, e:
+            print "Service call failed: %s"%e
 
     ## end of for loop ##    
 
