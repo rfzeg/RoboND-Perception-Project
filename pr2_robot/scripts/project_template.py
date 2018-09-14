@@ -380,10 +380,12 @@ def pr2_mover(object_list):
 
     ## Output your request parameters into output yaml file (was TODO)
     # yaml filenames: output_1.yaml, output_2.yaml, and output_3.yaml
-    yaml_filename = 'output_'+str(test_scene)+'.yaml'
-    send_to_yaml(yaml_filename, dict_list) # list of dictionaries
-    print "Saved output yaml file."
-
+    try:
+        yaml_filename = 'output_'+str(test_scene)+'.yaml'
+        send_to_yaml(yaml_filename, dict_list) # list of dictionaries
+        print "Saved output yaml file."
+    except:
+        print "No objects detected, no information to save on yaml file."
 
 
 if __name__ == '__main__':
