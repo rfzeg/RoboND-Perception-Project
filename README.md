@@ -86,7 +86,9 @@ $ roslaunch pr2_robot pick_place_project.launch
 ** Generate Features: **
 To generate features, first launch the training.launch file to bring up the Gazebo environment:
 ```$ roslaunch sensor_stick training.launch```
-Next, in a new terminal, run the capture_features.py script to capture and save features for each of the objects in the environment. 
+Next, in a new terminal, run the capture_features.py script to capture and save features for each of the objects in the environment.
+```$ rosrun sensor_stick capture_features.py```
+**Note:** The training_set.sav file will be saved in the current directory, where the script was executed.
 This script spawns each object in 20 random orientations.
 The script was modified to include following models:
 - biscuits
@@ -101,28 +103,32 @@ The script was modified to include following models:
 After that you run the train_svm.py script to train an SVM classifier on your labeled set of features.
 ``` $ rosrun sensor_stick train_svm.py ```
 
-
 Features in Training Set: 160
 Invalid Features in Training set: 0
-Scores: [ 0.875    0.96875  0.96875  0.96875  0.96875]
-Accuracy: 0.95 (+/- 0.08)
-accuracy score: 0.95
+Scores: [ 0.9375   0.96875  0.84375  0.90625  0.9375 ]
+Accuracy: 0.92 (+/- 0.08)
+accuracy score: 0.91875
 
 The plots that show the relative accuracy of your classifier for the various objects:
 ![demo-1](https://user-images.githubusercontent.com/20687560/28748231-46b5b912-7467-11e7-8778-3095172b7b19.png)
 **Confusion matrix**
 
 Running the above command will also result in your trained model being saved in a model.sav file.
-**Note:** This model.sav file will be saved in the catkin_ws folder.
-
-To test with the project, first run:
-``` $ roslaunch pr2_robot pick_place_project.launch ```
-
-and then in another terminal, run your object recognition node:
-``` $ rosrun pr2_robot project_template.py ```
+**Note:** This model.sav file will be saved in the current directory, where the script was executed.
 
 **Note:** keep in mind that the model.sav file needs to be in the same directory where you run this!
 **Note2:** chmod +x project_template.py
+
+Copy the model.sav to the directory where the project_template.py script is located.
+
+To test with the development so far, first run:
+``` $ roslaunch pr2_robot pick_place_project.launch ```
+
+and then in another terminal, run your object recognition node:
+**IMPORTANT:** RUN THE NEXT SCRIPT FROM THE DIRECTORY WHERE THE FILE MODEL.SAV IS LOCATED:
+e.g first $ cd ~/catkin_ws/src/RoboND-Perception-Project/pr2_robot/scripts
+``` $ rosrun pr2_robot project_template.py ```
+
 
 2. Write a ROS node and subscribe to `/pr2/world/points` topic. This topic contains noisy point cloud data that you must work with.
 3. Use filtering and RANSAC plane fitting to isolate the objects of interest from the rest of the scene.
