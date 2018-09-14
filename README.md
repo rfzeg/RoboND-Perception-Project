@@ -159,15 +159,106 @@ To clean up the noise of the camera image we use the statistical outlier filter 
 
     # Finally call the filter function for magic
     cloud_outlier_filtered = outlier_filter.filter()
-
 ``` 
 
 ![demo-1](https://github.com/digitalgroove/RoboND-Perception-Project/blob/master/writeup_images/perception-project-filtered-cloud.png)
 **Image: Point cloud after statistical outlier filtering**
 
-4. Use filtering and RANSAC plane fitting to isolate the objects of interest from the rest of the scene.
+4. Use filtering and RANSAC plane fitting to isolate the objects of interest from the rest of the scene.  
+This part of the code was mainly developed during Perception Exercise-2.
+```python 
+    ## RANSAC plane segmentation (was TODO)
+    # Identifies points that belong to a particular model (plane, cylinder, box, etc.)
+
+    # Create the segmentation object
+    seg = cloud_passthrough_2.make_segmenter()
+
+    # Set the model you wish to fit 
+    seg.set_model_type(pcl.SACMODEL_PLANE)
+    seg.set_method_type(pcl.SAC_RANSAC)
+
+    # Max distance for a point to be considered fitting the model
+    # Experiment with different values for max_distance 
+    # for segmenting the table
+    max_distance = 0.01
+    seg.set_distance_threshold(max_distance)
+
+    # Call the segment function to obtain set of inlier indices and model coefficients
+    inliers, coefficients = seg.segment()
+```
 5. Apply Euclidean clustering to create separate clusters for individual items.
-6. Perform object recognition on these objects and assign them labels (markers in RViz).
+```python
+    ## Euclidean Clustering
+    # Apply function to convert XYZRGB to XYZ
+    white_cloud = XYZRGB_to_XYZ(cloud_objects) 
+    tree = white_cloud.make_kdtree() # returns a kd-tree
+
+    # Perform the cluster extraction
+    # Create a cluster extraction object
+    ec = white_cloud.make_EuclideanClusterExtraction()
+    # Set tolerances for distance threshold 
+    # as well as minimum and maximum cluster size (in points)
+    ec.set_ClusterTolerance(0.05)
+    ec.set_MinClusterSize(10)
+    ec.set_MaxClusterSize(5000)
+    # Search the k-d tree for clusters
+    ec.set_SearchMethod(tree)
+    # Extract indices for each of the discovered clusters
+    cluster_indices = ec.Extract()
+```
+6. Perform object recognition on these objects and assign them labels (markers in RViz).  
+This part of the code was mainly developed during Perception Exercise-3.
+```python
+    ## Perform object recognition on these objects and assign them labels
+    # Create some empty lists to receive labels and object point clouds
+    detected_objects_labels = []
+    detected_objects = []
+
+    # Classify the clusters! (loop through each detected cluster one at a time)
+
+    for index, pts_list in enumerate(cluster_indices):
+        # Grab the points for the cluster from the extracted objects (cloud_objects)
+        pcl_cluster = cloud_objects.extract(pts_list)
+        # Convert the cluster from pcl to ROS using helper function (was TODO)
+        ros_cluster = pcl_to_ros(pcl_cluster)
+
+        # Extract histogram features (Compute the associated feature vector)
+        # Complete this step just as is covered in capture_features.py (was TODO)
+        chists = compute_color_histograms(ros_cluster, using_hsv=True)
+        normals = get_normals(ros_cluster)
+        nhists = compute_normal_histograms(normals)
+        feature = np.concatenate((chists, nhists))
+
+        # Make the prediction, retrieve the label for the result
+        # and add it to detected_objects_labels list
+        prediction = clf.predict(scaler.transform(feature.reshape(1,-1)))
+        label = encoder.inverse_transform(prediction)[0]
+        detected_objects_labels.append(label)
+
+        # Publish a label into RViz
+        label_pos = list(white_cloud[pts_list[0]])
+        label_pos[2] += .4
+        object_markers_pub.publish(make_label(label,label_pos, index))
+
+        # Add the detected object to the list of detected objects
+        # Declare a object of message type DetectedObject:
+        do = DetectedObject() 
+        do.label = label
+        do.cloud = ros_cluster
+        # A list of detected objects (of message type DetectedObject)
+        detected_objects.append(do)
+
+    ## end of for loop ##
+    # Prints list of detected objects:
+    rospy.loginfo('Detected {} objects: {}'.format(len(detected_objects_labels), detected_objects_labels))
+
+    # Publish the list of detected objects
+    detected_objects_pub.publish(detected_objects)
+```
+![demo-1](https://github.com/digitalgroove/RoboND-Perception-Project/blob/master/writeup_images/perception-project-world3-results.png)
+**Image: Point cloud after object recognition and object labeling tested in World 3**
+
+
 7. Calculate the centroid (average in x, y and z) of the set of points belonging to that each object.
 8. Create ROS messages containing the details of each object (name, pick_pose, etc.) and write these messages out to `.yaml` files, one for each of the 3 scenarios (`test1-3.world` in `/pr2_robot/worlds/`).  See the example `output.yaml` for details on what the output should look like.  
 9. Submit a link to your GitHub repo for the project or the Python code for your perception pipeline and your output `.yaml` files (3 `.yaml` files, one for each test world).  You must have correctly identified 100% of objects from `pick_list_1.yaml` for `test1.world`, 80% of items from `pick_list_2.yaml` for `test2.world` and 75% of items from `pick_list_3.yaml` in `test3.world`.
