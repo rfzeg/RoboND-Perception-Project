@@ -2,7 +2,7 @@
 # 3D Perception Project
 
 I programmed a PR2 robot that uses data from a RGB-D sensor to identify objects on a cluttered tabletop. The data captured by the sensor runs trough a perception pipeline that allows to identify target objects. With this information the robot can pick up target objects from a so-called “Pick-List” and place them in corresponding dropboxes.  
-The process of development of this perception pipeline involves various stages which I describe bellow in a step by step manner.
+The multiple stages involved in the creation of this perception process are described bellow in a step by step manner.
 
 
 PLACEHOLDER FOR IMAGE
@@ -49,14 +49,20 @@ PLACEHOLDER FOR IMAGE
 This part of the code was mainly developed during [Perception Exercise 1](https://github.com/udacity/RoboND-Perception-Exercises).
 
 ### 1. Create ROS node and subscribe to data from RGB-D camera
-Subscribe to `/pr2/world/points` topic  
-This topic contains noisy point cloud data that you must work with.  
+I used the _project_template.py_ file as starting point.
+As first step, inside the python main block, I added code to perform:
+- ROS node initialization
+- Create Subscribers and subscribe to `/pr2/world/points` topic and use pcl_callback() as callback function
+- Create Publishers
+- Load Model From disk _(provided by the template file)_
+- Spin script while node is not shutdown
+
+All steps below were implemented inside the pcl_callback() function:
+
 
 ### 2. Remove noise using a statistical outlier filter  
-
+This topic contains noisy point cloud data that must be filtered to reduce noise.  
 To clean up the noise of the camera image we use the statistical outlier filter found in python-pcl:
-![demo-1](https://github.com/digitalgroove/RoboND-Perception-Project/blob/master/writeup_images/perception-project-noisy-cloud.png)
-**Image: Point cloud before statistical outlier filtering**
 
 ```python
     ## Statistical Outlier Filtering
@@ -77,14 +83,74 @@ To clean up the noise of the camera image we use the statistical outlier filter 
     # Finally call the filter function for magic
     cloud_outlier_filtered = outlier_filter.filter()
 ```
-![demo-1](https://github.com/digitalgroove/RoboND-Perception-Project/blob/master/writeup_images/perception-project-filtered-cloud.png)
-**Image: Point cloud after statistical outlier filtering**
+| **Image: Point cloud before statistical outlier filtering**            |  **Image: Point cloud after statistical outlier filtering** |
+:-------------------------:|:-------------------------:
+![](https://github.com/digitalgroove/RoboND-Perception-Project/blob/master/writeup_images/perception-project-noisy-cloud.png)  |  ![](https://github.com/digitalgroove/RoboND-Perception-Project/blob/master/writeup_images/perception-project-filtered-cloud.png)
+
+Also added: publish cloud filtered with statistical outlier filter, topic /pcl_stat_outlier_filter
+In this step it was important to fine tune parameters on statistical outlier filter:
+- Set the number of neighboring points to analyze for any given point
+- Set threshold scale factor
 
 ### 3. Downsample point cloud by applying a Voxel Grid Filter
-
+This block of code was developed and fine tuned as part of [Perception Exercise 2](https://github.com/udacity/RoboND-Perception-Exercises).
+```python
+     ## Voxel Grid filter
+     # A voxel grid filter allows to downsample the data
+ 
+     # Create a VoxelGrid filter object for our input point cloud
+     vox = cloud_outlier_filtered.make_voxel_grid_filter()
+ 
+     # Choose a voxel (also known as leaf) size
+     # Note: using 1 is a poor choice of leaf size
+     # Units of the voxel size (or leaf size) are in meters
+     # Experiment and find the appropriate size!
+     LEAF_SIZE = 0.005
+ 
+     # Set the voxel (or leaf) size  
+     vox.set_leaf_size(LEAF_SIZE, LEAF_SIZE, LEAF_SIZE)
+ 
+     # Call the filter function to obtain the resultant downsampled point cloud
+     cloud_filtered = vox.filter()
+```
 
 ### 4. Apply a Pass Through Filter to isolate the table and objects
+This block of code was also developed and fine tuned as part of [Perception Exercise 2](https://github.com/udacity/RoboND-Perception-Exercises).
+```python
+     ## PassThrough filter (was TODO)
+     # It allows to crop a part by specifying an axis and cut-off values
+ 
+     # Create a PassThrough filter object.
+     passthrough = cloud_filtered.make_passthrough_filter()
+ 
+     # Assign axis and range to the passthrough filter object.
+     # Here axis_min and max is the height with respect to the ground
+     filter_axis = 'z'
+     passthrough.set_filter_field_name(filter_axis)
+     axis_min = 0.6 # to retain only the tabletop and the objects sitting on the table
+     axis_max = 1.0 # to filter out the upper part of the cloud
+     passthrough.set_filter_limits(axis_min, axis_max)
+ 
+     # Finally use the filter function to obtain the resultant point cloud. 
+     cloud_passthrough_1 = passthrough.filter()
+```
 
+
+**Next I had to add a Pass Through Filter to filter out the dropboxes corners that were detected by the RGB-D sensor:**
+```python
+cloud_passthrough_1 = passthrough.filter()
+     # Create a PassThrough filter object.
+    passthrough_x = cloud_passthrough_1.make_passthrough_filter()
+    # Assign axis and range to the passthrough filter object.
+    # Here axis_min and max is the height with respect to the ground
+    filter_axis = 'x'
+    passthrough_x.set_filter_field_name(filter_axis)
+    x_axis_min = 0.35 # to filter out the closest part of the cloud
+    x_axis_max = 1.5 # to filter out the farest part of the cloud
+    passthrough_x.set_filter_limits(x_axis_min, x_axis_max)
+    # Finally use the filter function to obtain the resultant point cloud. 
+    cloud_passthrough_2 = passthrough_x.filter()
+```
 
 ### 5. Perform RANSAC plane fitting to identify the table
 This part of the code was mainly developed during [Perception Exercise 2](https://github.com/udacity/RoboND-Perception-Exercises).
@@ -107,11 +173,18 @@ This part of the code was mainly developed during [Perception Exercise 2](https:
 
     # Call the segment function to obtain set of inlier indices and model coefficients
     inliers, coefficients = seg.segment()
-
+```
 
 ### 6. Create new point clouds containing the table and objects separately
-
+This part of the code was mainly developed during [Perception Exercise 2](https://github.com/udacity/RoboND-Perception-Exercises):
+```python 
+     ## Extract inliers and outliers (was TODO)
+     # Allows to extract points from a point cloud by providing a list of indices
+     cloud_table = cloud_passthrough_2.extract(inliers, negative=False)
+     # With the negative flag True we retrieve the points that do not fit the RANSAC model
+     cloud_objects = cloud_passthrough_2.extract(inliers, negative=True)
 ```
+
 ## Part 2: Euclidean Clustering for Object Segmentation
 ### 1. Apply Euclidean clustering to create separate clusters for individual items
 ```python
@@ -436,16 +509,11 @@ $ ./pr2_safe_spawner.sh
 ```
 ![demo-1](https://user-images.githubusercontent.com/20687560/28748231-46b5b912-7467-11e7-8778-3095172b7b19.png)
 
-
-
 Once Gazebo is up and running, make sure you see following in the gazebo world:
 - Robot
 - Table arrangement
 - Three target objects on the table
 - Dropboxes on either sides of the robot
-
-
-If any of these items are missing, please report as an issue on [the waffle board](https://waffle.io/udacity/robotics-nanodegree-issues).
 
 In your RViz window, you should see the robot and a partial collision map displayed:
 
