@@ -27,7 +27,7 @@ PLACEHOLDER FOR IMAGE
 1. Extract features of all objects
 2. Train SVM model on all objects
 3. Perform object recognition on objects
-4. Calculate the centroid of each object
+4. Calculate the object's centroid
 
 **Part 4: Write output as yaml file**
 1. Pick Pose
@@ -260,33 +260,44 @@ Befere publishing the cloud I have to convert it to ROS' PointCloud2 type:
 
 ## Part 3: Implement Object Recognition
 
-### 1. Extract features of all objects   
-To generate features, first launch the training.launch file to bring up the Gazebo environment:  
+### 1. Extract features of all objects (one time task)   
+In order to be able to recognize objects, it is neccesary to first generate the object's features.  
+Note: This task has to be executed one time, and is not run during the perception process.  
+To extract the features of the objects I launched the `training.launch` file to bring up the Gazebo environment that I used to capture RGB-D point clouds of the objects:  
 ```$ roslaunch sensor_stick training.launch```  
-Next, in a new terminal, run the capture_features.py script to capture and save features for each of the objects in the environment:
+Next, in a new terminal, I ran the `capture_features.py` script to capture and save features for each of the objects in the environment:  
 ```$ rosrun sensor_stick capture_features.py```  
-**Note:** The training_set.sav file is saved in the current directory, where the script was executed.  
+As a result, the training_set.sav file was saved in the current directory, where the script was executed.  
 
-The **capture_features.py** script was modified to spawn each object in 20 random orientations and include following models:
-```
-- biscuits
-- book
-- eraser
-- glue
-- snacks
-- soap
-- soap2
-- sticky_notes
-```
+Note: I modified the **capture_features.py** script to include all object models:  
+_(code displayed shortened for brevity)_
 
-### 2. Train an SVM model on all objects
-After that you run the train_svm.py script to train an SVM classifier on your labeled set of features.  
+```python
+...
+if __name__ == '__main__':
+    rospy.init_node('capture_node')
+
+    models = [\
+       'biscuits',
+       'book',
+       'eraser',
+       'glue',
+       'snacks',
+       'soap',
+       'soap2',
+       'sticky_notes']
+...
+```
+I also modified the script to spawn each object in 20 random orientations to obtain more data for training the SVM model.
+
+### 2. Train an SVM model on all objects (one time task)   
+After that I ran the `train_svm.py` script to train an SVM classifier on my labeled set of features.  
 ``` $ rosrun sensor_stick train_svm.py ```
 
-Running the above command will also result in your trained model being saved in a model.sav file.
-**Note:** This model.sav file will be saved in the current directory, where the script was executed.
+The above command creates a trained model that is saved in a model.sav file.
+**Note:** This model.sav file is saved in the current directory, where the script is executed.
 
-**Training Results:**
+**I obtained following training results:**
 ``` 
 Features in Training Set: 160  
 Invalid Features in Training set: 0  
@@ -295,39 +306,20 @@ Accuracy: 0.92 (+/- 0.08)
 accuracy score: 0.91875  
 ```
 
-The following plots show the relative accuracy of the classifier for the various objects:
+An this is the relative accuracy of the classifier that I got:
 
 ![demo-1](https://github.com/digitalgroove/RoboND-Perception-Project/blob/master/writeup_images/SVM-Confusion-Matrix-Perception-Project.png)
 **Image: Confusion matrix**
 
-
-
-
-Copy the model.sav to the directory where the project_template.py script is located.  
-**Note:** chmod +x project_template.py  
-**Note2:** keep in mind that the model.sav file needs to be in the same directory where you run this!
-
-To test with the development so far, first run:
-``` $ roslaunch pr2_robot pick_place_project.launch ```
-and then in another terminal, run your object recognition node:  
-**IMPORTANT:** RUN THE NEXT SCRIPT FROM THE DIRECTORY WHERE THE FILE MODEL.SAV IS LOCATED:  
-e.g first $ cd ~/catkin_ws/src/RoboND-Perception-Project/pr2_robot/scripts  
-``` $ rosrun pr2_robot project_template.py ```
-
+Next I copied the model.sav file to the directory where the project_template.py script is located.  
+**Note:** This is because the model.sav file has to be in the same directory where the perception pipeline script is run!
 
 
 ### 3. Perform object recognition on objects
-
-Make the prediction.
-This part of the code was mainly developed during [Perception Exercise 3](https://github.com/udacity/RoboND-Perception-Exercises).
+Continuing with the perception pipeline script, I wrote a for loop to cycle through each of the segmented clusters.  
+The code then extracts the **color histograms** and **normal histograms** of the current object point cloud and uses the trained SVM model to find a match to an object.  
+Note: This part of the code was mainly developed during [Perception Exercise 3](https://github.com/udacity/RoboND-Perception-Exercises).
 ```python
-    ## Perform object recognition on these objects and assign them labels
-    # Create some empty lists to receive labels and object point clouds
-    detected_objects_labels = []
-    detected_objects = []
-
-    # Classify the clusters! (loop through each detected cluster one at a time)
-
     for index, pts_list in enumerate(cluster_indices):
         # Grab the points for the cluster from the extracted objects (cloud_objects)
         pcl_cluster = cloud_objects.extract(pts_list)
@@ -346,7 +338,15 @@ This part of the code was mainly developed during [Perception Exercise 3](https:
         prediction = clf.predict(scaler.transform(feature.reshape(1,-1)))
         label = encoder.inverse_transform(prediction)[0]
         detected_objects_labels.append(label)
+```
 
+To finish this step I created a label that can be read by Rviz to display it on top of the object (see image below):
+
+![demo-1](https://github.com/digitalgroove/RoboND-Perception-Project/blob/master/writeup_images/perception-project-world3-results.png)
+**Image: Point cloud after object recognition and object labeling tested in World 3**
+
+
+```python
         # Publish a label into RViz
         label_pos = list(white_cloud[pts_list[0]])
         label_pos[2] += .4
@@ -367,15 +367,15 @@ This part of the code was mainly developed during [Perception Exercise 3](https:
     # Publish the list of detected objects
     detected_objects_pub.publish(detected_objects)
 ```
-![demo-1](https://github.com/digitalgroove/RoboND-Perception-Project/blob/master/writeup_images/perception-project-world3-results.png)
-**Image: Point cloud after object recognition and object labeling tested in World 3**
 
 
+### 4.  Calculate the object's centroid
+In this step I calculated the average in x, y and z of the set of points belonging to the current object.
+But first, I verified that the predicted object's name was inside the pick up list.If the detected object is not in the pick-up list, the algorithm continues with other objects in the for loop.  
+In the case it is part of the pick-up list, the centroid is calculated and the script continues to prepare the data needed to write an output file as yaml file.
 
-### 4.  Calculate the centroid
-Next calculate the average in x, y and z of the set of points belonging to that each object.
 ```python
-    ## Loop through the pick list (was TODO)
+    ## Loop through the pick list 
     # Loop over our list using a plain for-in loop
     for index, item in enumerate(object_list_param):
 
@@ -405,7 +405,7 @@ Next calculate the average in x, y and z of the set of points belonging to that 
 ```
 ## Part 4: Write output as yaml file
 
-In this step we fill in the appropriate fields that the “pick_place_routine” rosservice requires to operate and save them as a yaml file.  
+In this step I fill in the appropriate fields that the “pick_place_routine” rosservice requires to operate. Then I save them as a yaml file that can be read by the ROS service.  
 
 ### 1. Pick Pose
 ```python
