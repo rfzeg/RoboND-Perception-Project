@@ -19,9 +19,9 @@ PLACEHOLDER FOR IMAGE
 6. Create new point clouds containing the table and objects separately  
 
 **Part 2: Euclidean Clustering for Object Segmentation**
-1. Apply Euclidean clustering to objects
-2. Apply unique color to each object's point cloud
-3. Publish colored cluster cloud on separate topic 
+1. Create separate clusters for individual items
+2. Cluster Visualization
+3. Publish point clouds of individual items on a separate topic 
 
 **Part 3: Implement Object Recognition**
 1. Extract features of all objects
@@ -46,7 +46,6 @@ PLACEHOLDER FOR IMAGE
 
 
 ## Part 1: Tabletop Segmentation 
-This part of the code was mainly developed during [Perception Exercise 1](https://github.com/udacity/RoboND-Perception-Exercises).
 
 ### 1. Create ROS node and subscribe to data from RGB-D camera
 I used the _project_template.py_ file as starting point.
@@ -57,12 +56,25 @@ As first step, inside the python main block, I added code to perform:
 - Load Model From disk _(provided by the template file)_
 - Spin script while node is not shutdown
 
-All steps below were implemented inside the pcl_callback() function:
 
+All steps described below were implemented inside the pcl_callback() function:  
+``` 
+def pcl_callback(pcl_msg): 
+
+```
 
 ### 2. Remove noise using a statistical outlier filter  
-This topic contains noisy point cloud data that must be filtered to reduce noise.  
-To clean up the noise of the camera image we use the statistical outlier filter found in python-pcl:
+The `/pr2/world/points` topic contains noisy point cloud data that must be filtered to reduce noise.  
+To clean up the noise I implemented the statistical outlier filter found in python-pcl.  
+
+| ![](https://github.com/digitalgroove/RoboND-Perception-Project/blob/master/writeup_images/perception-project-noisy-cloud.png)     |  ![](https://github.com/digitalgroove/RoboND-Perception-Project/blob/master/writeup_images/perception-project-filtered-cloud.png) 
+:-------------------------:|:-------------------------:
+**Image: Point cloud before statistical outlier filtering**         |  **Image: Point cloud after statistical outlier filtering** |
+
+In addition to that I republished the filtered cloud to the topic `/pcl_stat_outlier_filter`  
+It was crucial to fine tune the parameters to get the statistical outlier filter right:
+- Set the number of neighboring points to analyze for any given point
+- Set threshold scale factor
 
 ```python
     ## Statistical Outlier Filtering
@@ -83,17 +95,11 @@ To clean up the noise of the camera image we use the statistical outlier filter 
     # Finally call the filter function for magic
     cloud_outlier_filtered = outlier_filter.filter()
 ```
-| **Image: Point cloud before statistical outlier filtering**            |  **Image: Point cloud after statistical outlier filtering** |
-:-------------------------:|:-------------------------:
-![](https://github.com/digitalgroove/RoboND-Perception-Project/blob/master/writeup_images/perception-project-noisy-cloud.png)  |  ![](https://github.com/digitalgroove/RoboND-Perception-Project/blob/master/writeup_images/perception-project-filtered-cloud.png)
-
-Also added: publish cloud filtered with statistical outlier filter, topic /pcl_stat_outlier_filter
-In this step it was important to fine tune parameters on statistical outlier filter:
-- Set the number of neighboring points to analyze for any given point
-- Set threshold scale factor
 
 ### 3. Downsample point cloud by applying a Voxel Grid Filter
-This block of code was developed and fine tuned as part of [Perception Exercise 2](https://github.com/udacity/RoboND-Perception-Exercises).
+In this step I implemented a VoxelGrid Downsampling Filter to derive a point cloud that has fewer points than the original but that still does a good job representing the input point cloud as a whole.  
+Note: This block of code was developed and fine tuned as part of [Perception Exercise 2](https://github.com/udacity/RoboND-Perception-Exercises).
+
 ```python
      ## Voxel Grid filter
      # A voxel grid filter allows to downsample the data
@@ -115,7 +121,9 @@ This block of code was developed and fine tuned as part of [Perception Exercise 
 ```
 
 ### 4. Apply a Pass Through Filter to isolate the table and objects
-This block of code was also developed and fine tuned as part of [Perception Exercise 2](https://github.com/udacity/RoboND-Perception-Exercises).
+In this step I apply a Pass Through Filter to remove useless data from the point cloud (like cropping the point cloud).  
+Note: This block of code was also developed and fine tuned as part of [Perception Exercise 2](https://github.com/udacity/RoboND-Perception-Exercises).
+
 ```python
      ## PassThrough filter (was TODO)
      # It allows to crop a part by specifying an axis and cut-off values
@@ -135,8 +143,7 @@ This block of code was also developed and fine tuned as part of [Perception Exer
      cloud_passthrough_1 = passthrough.filter()
 ```
 
-
-**Next I had to add a Pass Through Filter to filter out the dropboxes corners that were detected by the RGB-D sensor:**
+**In addtion to the filtering of values based on the Z axis I had to add another Pass Through Filter based on the X axis values of the point cloud to filter out the edges of the dropboxes:**
 ```python
 cloud_passthrough_1 = passthrough.filter()
      # Create a PassThrough filter object.
@@ -153,9 +160,10 @@ cloud_passthrough_1 = passthrough.filter()
 ```
 
 ### 5. Perform RANSAC plane fitting to identify the table
-This part of the code was mainly developed during [Perception Exercise 2](https://github.com/udacity/RoboND-Perception-Exercises).
+In this step I apply a RANSAC algorithm provided by the PCL library to identify points that belong to the table (a plane) and separate them from other points (the objects).  
+Note: This part of the code was mainly developed during [Perception Exercise 2](https://github.com/udacity/RoboND-Perception-Exercises).
 ```python 
-    ## RANSAC plane segmentation (was TODO)
+    ## RANSAC plane segmentation
     # Identifies points that belong to a particular model (plane, cylinder, box, etc.)
 
     # Create the segmentation object
@@ -176,9 +184,10 @@ This part of the code was mainly developed during [Perception Exercise 2](https:
 ```
 
 ### 6. Create new point clouds containing the table and objects separately
-This part of the code was mainly developed during [Perception Exercise 2](https://github.com/udacity/RoboND-Perception-Exercises):
+With RANSAC I identified which points in the cloud correspond to the table (inlier indices). The indices not corresponding to the table/plane are those representing the objects on the table (outliers).  
+Note: This part of the code was also developed during [Perception Exercise 2](https://github.com/udacity/RoboND-Perception-Exercises):
 ```python 
-     ## Extract inliers and outliers (was TODO)
+     ## Extract inliers and outliers
      # Allows to extract points from a point cloud by providing a list of indices
      cloud_table = cloud_passthrough_2.extract(inliers, negative=False)
      # With the negative flag True we retrieve the points that do not fit the RANSAC model
@@ -186,7 +195,9 @@ This part of the code was mainly developed during [Perception Exercise 2](https:
 ```
 
 ## Part 2: Euclidean Clustering for Object Segmentation
-### 1. Apply Euclidean clustering to create separate clusters for individual items
+### 1. Create separate clusters for individual items
+Here I use a use a PCL library function called EuclideanClusterExtraction() to segment the points representing the objects on the table into individual objects.  
+At the end of the code block _cluster_indices_ contains a list of indices for each cluster. In the next step, I will create a new point cloud to visualize the clusters by assigning a color to each of them.
 ```python
     ## Euclidean Clustering
     # Apply function to convert XYZRGB to XYZ
@@ -206,13 +217,46 @@ This part of the code was mainly developed during [Perception Exercise 2](https:
     # Extract indices for each of the discovered clusters
     cluster_indices = ec.Extract()
 ```
-### 2. Apply unique color to each object's point cloud
-### 3. Publish colored cluster cloud on separate topic
+
+### 2. Cluster Visualization
+Here I apply a unique color to each object's point cloud in order to be able to visualize the results in RViz!
 ```python
+    ## Create Cluster-Mask Point Cloud to visualize each cluster separately
+    # Assign a color corresponding to each segmented object in scene
+    cluster_color = get_color_list(len(cluster_indices))
 
+    color_cluster_point_list = []
 
+    for j, indices in enumerate(cluster_indices):
+        for i, indice in enumerate(indices):
+            color_cluster_point_list.append([white_cloud[indice][0],
+                                            white_cloud[indice][1],
+                                            white_cloud[indice][2],
+                                             rgb_to_float(cluster_color[j])])
+
+    # Create new cloud containing all clusters, each with unique color
+    cluster_cloud = pcl.PointCloud_PointXYZRGB()
+    cluster_cloud.from_list(color_cluster_point_list)
 ```
 
+### 3. Publish point clouds of individual items on a separate topic
+Befere publishing the cloud I have to convert it to ROS' PointCloud2 type:
+
+```python
+    ## Convert PCL data to ROS messages (was TODO)
+    ros_cloud_objects = pcl_to_ros(cloud_objects)
+    ros_cloud_table = pcl_to_ros(cloud_table)
+    # Cloud containing all clusters (objects), each with unique color:
+    ros_cluster_cloud = pcl_to_ros(cluster_cloud) 
+    ros_outlier_filtered_cloud = pcl_to_ros(cloud_outlier_filtered)
+
+    ## Publish ROS messages (was TODO)
+    pcl_objects_pub.publish(ros_cloud_objects)
+    pcl_table_pub.publish(ros_cloud_table)
+    # Cloud containing all clusters (objects), each with unique color:
+    pcl_cluster_pub.publish(ros_cluster_cloud)
+    stat_outlier_filter_pub.publish(ros_outlier_filtered_cloud)
+```
 
 ## Part 3: Implement Object Recognition
 
