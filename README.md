@@ -27,14 +27,15 @@ PLACEHOLDER FOR IMAGE
 1. Extract features of all objects
 2. Train SVM model on all objects
 3. Perform object recognition on objects
-4. Calculate the object's centroid
 
 **Part 4: Write output as yaml file**
-1. Pick Pose
-2. Name of the object
-3. Position of a target dropbox
-4. Robot arm to be used
-5. Test scene number
+1. Calculate the object's centroid
+2. Pick Pose
+3. Name of the object
+4. Position of a target dropbox
+5. Robot arm to be used
+6. Test scene number
+7. Populate ROS messages and call the service 'pick_place_routine'
 
 **Part 5: Complete Pick & Place (Extra Challenge)**
 1. Publish a point cloud that MoveIt can use to create a collision map
@@ -368,8 +369,13 @@ To finish this step I created a label that can be read by Rviz to display it on 
     detected_objects_pub.publish(detected_objects)
 ```
 
+## Part 4: Write output as yaml file
+The script template file defines a function called pr2_mover() to load parameters and request the PickPlace service
 
-### 4.  Calculate the object's centroid
+In this step I complete the pr2_mover() function so that the appropriate fields that the “pick_place” rosservice requires to operate are filled.  
+Then I save that information as a yaml file that can be read by the ROS service.  
+
+### 1.  Calculate the object's centroid
 In this step I calculated the average in x, y and z of the set of points belonging to the current object.
 But first, I verified that the predicted object's name was inside the pick up list.If the detected object is not in the pick-up list, the algorithm continues with other objects in the for loop.  
 In the case it is part of the pick-up list, the centroid is calculated and the script continues to prepare the data needed to write an output file as yaml file.
@@ -403,13 +409,13 @@ In the case it is part of the pick-up list, the centroid is calculated and the s
         points_arr = ros_to_pcl(pcl).to_array()
         centroids.append(np.mean(points_arr, axis=0)[:3])
 ```
-## Part 4: Write output as yaml file
 
-In this step I fill in the appropriate fields that the “pick_place_routine” rosservice requires to operate. Then I save them as a yaml file that can be read by the ROS service.  
 
-### 1. Pick Pose
+
+### 2. Pick Pose
+Calculated pose of the recognized object's centroid.
 ```python
-        ## Pick pose, calculated pose of recognized object's centroid (was TODO)
+        ## Pick pose
         # Initialize an empty pose message
         pick_pose = Pose()
 
@@ -418,23 +424,22 @@ In this step I fill in the appropriate fields that the “pick_place_routine” 
         pick_pose.position.x = np.asscalar(centroids[-1][0])
         pick_pose.position.y = np.asscalar(centroids[-1][1])
         pick_pose.position.z = np.asscalar(centroids[-1][2])
-        print "Centroid/Position of last object added to list: {0}, {1}, {2}".format(pick_pose.position.x,pick_pose.position.y,pick_pose.position.z) # for debugging
 ```
-### 2. Name of the object
+### 3. Name of the object
+Create and fill in a message variable containing the name of the object.
 ```python
-        ## Create and fill in message variable for the name of the object (was TODO)
         # Initialize a variable
         msg_object_name = String()
         # Populate the data field
         msg_object_name.data = object_name
 ```
-### 3. Position of a target dropbox
+### 4. Position of a target dropbox
+Get the position for a given dropbox and its coordinates as placement pose for the object
 ```python
-        ## Get the position for a given dropbox (same as other TODO)
         # Search a list of dictionaries and return a selected value in selected dictionary 
         selected_entry = [item for item in dropbox_obj_param if item['group'] == object_group][0]
         dropbox_position = selected_entry.get('position')
-        print "Position extracted from yaml file: {}".format(dropbox_position) # for debugging
+        # print "Position extracted from yaml file: {}".format(dropbox_position) # for debugging
       
         ## Create 'place_pose' or object placement pose for the object (was TODO)
         # Initialize an empty pose message
@@ -444,10 +449,9 @@ In this step I fill in the appropriate fields that the “pick_place_routine” 
         place_pose.position.y = dropbox_position[1]
         place_pose.position.z = dropbox_position[2]
 ```
-### 4. Robot arm to be used
+### 5. Robot arm to be used
+Assign the arm to be used for pick and place operation
 ```python
-
-        ## Assign the arm to be used for pick_place (was TODO)
         # Name of the arm can be either right/green or left/red
         # Initialize a variable
         which_arm = String()
@@ -458,25 +462,59 @@ In this step I fill in the appropriate fields that the “pick_place_routine” 
             which_arm.data = 'left'
         print "Arm: {}".format(which_arm.data) # for debugging
 ```
-### 5. Test scene number
-```python      
-        ## The test scene number (either 1, 2 or 3) (was TODO)
+### 6. Test scene number
+Get the test scene number (either 1, 2 or 3)
+```python
         # Initialize the test_scene_num variable
         test_scene_num = Int32()
         # Get/Read parameters of dropbox positions
         test_scene = rospy.get_param('/test_scene_num') # parameter name
         # Populate the data field of that variable:
         test_scene_num.data = test_scene
-        print "Test Scene Number: {}".format(test_scene_num.data) # for debugging
+        # print "Test Scene Number: {}".format(test_scene_num.data) # for debugging
 
+
+```
+### 7. Populate ROS messages and call the service 'pick_place_routine'
+Using the provided make_yaml_dict() helper function I converted the messages to dictionaries.  
+Next I call rospy.wait_for_service() to block the code execution until the service 'pick_place_routine' is available.  
+Then I call the service by creating a rospy.ServiceProxy with 'pick_place_routine' as the name of the service to call.  
+
+```python
         ## Populate various ROS messages
         yaml_dict = make_yaml_dict(test_scene_num, which_arm, msg_object_name, pick_pose, place_pose)
         dict_list.append(yaml_dict)
 
         # Wait for 'pick_place_routine' service to come up
         rospy.wait_for_service('pick_place_routine')
+
+
+        try:
+            pick_place_routine = rospy.ServiceProxy('pick_place_routine', PickPlace)
+
+            ## Insert your message variables to be sent as a service request (was TODO)
+            resp = pick_place_routine(test_scene_num, msg_object_name, which_arm, pick_pose, place_pose)
+            print ("Response: ",resp.success)
+
+        except rospy.ServiceException, e:
+            print "Service call failed: %s"%e
+
+    ## end of for loop ## 
 ```
-See the block below for details on how the output (output_1.yaml) looks like:
+
+Finally I output the request parameters into a output yaml file:
+```python
+    # yaml filenames: output_1.yaml, output_2.yaml, and output_3.yaml
+    try:
+        yaml_filename = 'output_'+str(test_scene)+'.yaml'
+        send_to_yaml(yaml_filename, dict_list) # list of dictionaries
+        print "Saved output yaml file."
+    except:
+        print "No objects detected, no information to save on yaml file."
+```
+
+The block below shows how the output file (output_1.yaml) looks like:  
+
 ```
 
 
