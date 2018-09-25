@@ -4,9 +4,7 @@
 I programmed a PR2 robot that uses data from a RGB-D sensor to identify objects on a cluttered tabletop. The data captured by the sensor runs trough a perception pipeline that allows to identify target objects. With this information the robot can pick up target objects from a so-called “Pick-List” and place them in corresponding dropboxes.  
 The multiple stages involved in the creation of this perception process are described bellow in a step by step manner.
 
-
-PLACEHOLDER FOR IMAGE
-
+![](https://github.com/digitalgroove/RoboND-Perception-Project/blob/master/writeup_images/2018-09-25-042815_1920x958_scrot.png)  
 **Image 1: The completed pick and place process**
 
 ### Table of Contents
@@ -43,7 +41,8 @@ PLACEHOLDER FOR IMAGE
 3. Create a ROS Client for the “pick_place_routine” rosservice
 
 **Part 6: Setup Instructions**  
-
+1. Instalation
+2. Running the Project
 
 
 ## Part 1: Tabletop Segmentation 
@@ -516,7 +515,76 @@ Finally I output the request parameters into a output yaml file:
 The block below shows how the output file (output_1.yaml) looks like:  
 
 ```
-
+object_list:
+- arm_name: right
+  object_name: biscuits
+  pick_pose:
+    orientation:
+      w: 0.0
+      x: 0.0
+      y: 0.0
+      z: 0.0
+    position:
+      x: 0.5414684414863586
+      y: -0.24128590524196625
+      z: 0.7050934433937073
+  place_pose:
+    orientation:
+      w: 0.0
+      x: 0.0
+      y: 0.0
+      z: 0.0
+    position:
+      x: 0
+      y: -0.71
+      z: 0.605
+  test_scene_num: 1
+- arm_name: right
+  object_name: soap
+  pick_pose:
+    orientation:
+      w: 0.0
+      x: 0.0
+      y: 0.0
+      z: 0.0
+    position:
+      x: 0.5446743965148926
+      y: -0.018615946173667908
+      z: 0.6766468286514282
+  place_pose:
+    orientation:
+      w: 0.0
+      x: 0.0
+      y: 0.0
+      z: 0.0
+    position:
+      x: 0
+      y: -0.71
+      z: 0.605
+  test_scene_num: 1
+- arm_name: left
+  object_name: soap2
+  pick_pose:
+    orientation:
+      w: 0.0
+      x: 0.0
+      y: 0.0
+      z: 0.0
+    position:
+      x: 0.44491374492645264
+      y: 0.2209254503250122
+      z: 0.676362931728363
+  place_pose:
+    orientation:
+      w: 0.0
+      x: 0.0
+      y: 0.0
+      z: 0.0
+    position:
+      x: 0
+      y: 0.71
+      z: 0.605
+  test_scene_num: 1
 
 ```
 
@@ -546,20 +614,14 @@ Place all the objects from your pick list in their respective dropoff box and yo
 
 What did not work was to modify the SVM parameters to use a _rbf_ kernel function. Maybe with some more time to tweak it it could yield better results than the linear kernel used.
 
-## Project Setup
-For this setup, catkin_ws is the name of active ROS Workspace, if your workspace name is different, change the commands accordingly
-If you do not have an active ROS workspace, you can create one by:
+## Part 6: Setup Instructions
+### Instalation
+For this setup, I asume that catkin_ws is the name of your ROS Workspace.
 
-```sh
-$ mkdir -p ~/catkin_ws/src
-$ cd ~/catkin_ws/
-$ catkin_make
-```
-
-Now that you have a workspace, clone or download this repo into the src directory of your workspace:
+Clone or download this repo into the src directory of your workspace:
 ```sh
 $ cd ~/catkin_ws/src
-$ git clone https://github.com/udacity/RoboND-Perception-Project.git
+$ git clone https://github.com/digitalgroove/RoboND-Perception-Project.git
 ```
 **Note: If you have the Kinematics Pick and Place project in the same ROS Workspace as this project, please remove the 'gazebo_grasp_plugin' directory from the `RoboND-Perception-Project/` directory otherwise ignore this note.**
 
@@ -579,17 +641,19 @@ export GAZEBO_MODEL_PATH=~/catkin_ws/src/RoboND-Perception-Project/pr2_robot/mod
 ```
 
 If you haven’t already, following line can be added to your .bashrc to auto-source all new terminals
-```
+```sh
 source ~/catkin_ws/devel/setup.bash
 ```
 
-To run the demo:
+### Running the Project
+
+You can run the project like this:
 ```sh
 $ cd ~/catkin_ws/src/RoboND-Perception-Project/pr2_robot/scripts
-$ chmod u+x pr2_safe_spawner.sh
-$ ./pr2_safe_spawner.sh
+$ roslaunch pr2_robot pick_place_project.launch
 ```
-![demo-1](https://user-images.githubusercontent.com/20687560/28748231-46b5b912-7467-11e7-8778-3095172b7b19.png)
+
+
 
 Once Gazebo is up and running, make sure you see following in the gazebo world:
 - Robot
@@ -597,17 +661,19 @@ Once Gazebo is up and running, make sure you see following in the gazebo world:
 - Three target objects on the table
 - Dropboxes on either sides of the robot
 
-In your RViz window, you should see the robot and a partial collision map displayed:
+Then run the perception pipeline algorithm:
 
-![demo-2](https://user-images.githubusercontent.com/20687560/28748286-9f65680e-7468-11e7-83dc-f1a32380b89c.png)
-
-Proceed through the demo by pressing the ‘Next’ button on the RViz window when a prompt appears in your active terminal
-
-The demo ends when the robot has successfully picked and placed all objects into respective dropboxes (though sometimes the robot gets excited and throws objects across the room!)
-
-Close all active terminal windows using **ctrl+c** before restarting the demo.
-
-You can launch the project scenario like this:
 ```sh
-$ roslaunch pr2_robot pick_place_project.launch
+$ rosrun pr2_robot project_template.py
 ```
+Note:  If the following error message appers `No such file or directory: 'model.sav'` make sure you run the launch file from inside the `/scripts` directory as stated above.
+
+Proceed through the pick and place operation by pressing the ‘Next’ or ‘Continue’ button on the RViz window called "RvizVisualToolsGuide".
+
+To change the world number edit this file: **pick_place_project.launch**
+And change the argument "test_scene_num" to a value of 1, 2 or 3.
+```
+  <!--TODO:Change the test number based on the scene you want loaded-->
+  <arg name="test_scene_num" value="1"/>
+```
+Then run again as described above.
