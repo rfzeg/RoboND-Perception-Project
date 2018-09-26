@@ -1,7 +1,8 @@
 [![Udacity - Robotics NanoDegree Program](https://s3-us-west-1.amazonaws.com/udacity-robotics/Extra+Images/RoboND_flag.png)](https://www.udacity.com/robotics)
 # 3D Perception Project
 
-I programmed a PR2 robot that uses data from a RGB-D sensor to identify objects on a cluttered tabletop. The data captured by the sensor runs trough a perception pipeline that allows to identify target objects. With this information the robot can pick up target objects from a so-called “Pick-List” and place them in corresponding dropboxes.  
+**Writeup by Roberto Zegers**   
+I programmed a PR2 robot that uses data from a RGB-D sensor to identify objects on a cluttered tabletop. The information about detected objects is than used by the robot to pick up the objects that belong to a “Pick-List” and place them in corresponding dropboxes.  
 The multiple stages involved in the creation of this perception process are described bellow in a step by step manner.
 
 ![](https://github.com/digitalgroove/RoboND-Perception-Project/blob/master/writeup_images/2018-09-25-042815_1920x958_scrot.png)  
@@ -19,7 +20,7 @@ The multiple stages involved in the creation of this perception process are desc
 **Part 2: Euclidean Clustering for Object Segmentation**
 1. Create separate clusters for individual items
 2. Cluster Visualization
-3. Publish point clouds of individual items on a separate topic 
+3. Publish point clouds of individual items
 
 **Part 3: Implement Object Recognition**
 1. Extract features of all objects
@@ -27,7 +28,7 @@ The multiple stages involved in the creation of this perception process are desc
 3. Perform object recognition on objects
 
 **Part 4: Write output as yaml file**
-1. Calculate the object's centroid
+1. Object's centroid
 2. Pick Pose
 3. Name of the object
 4. Position of a target dropbox
@@ -35,15 +36,11 @@ The multiple stages involved in the creation of this perception process are desc
 6. Test scene number
 7. Populate ROS messages and call the service 'pick_place_routine'
 
-**Part 5: Complete Pick & Place (Extra Challenge)**
-1. Publish a point cloud that MoveIt can use to create a collision map
-2. Rotate the robot
-3. Create a ROS Client for the “pick_place_routine” rosservice
+**Part 5: Future Improvements**
 
 **Part 6: Setup Instructions**  
-1. Instalation
+1. Installation Guide
 2. Running the Project
-
 
 ## Part 1: Tabletop Segmentation 
 
@@ -143,10 +140,9 @@ Note: This block of code was also developed and fine tuned as part of [Perceptio
      cloud_passthrough_1 = passthrough.filter()
 ```
 
-**In addtion to the filtering of values based on the Z axis I had to add another Pass Through Filter based on the X axis values of the point cloud to filter out the edges of the dropboxes:**
+**In addition to the filtering of values based on the Z axis I had to add another Pass Through Filter based on the X axis values of the point cloud to filter out the edges of the dropboxes:**
 ```python
-cloud_passthrough_1 = passthrough.filter()
-     # Create a PassThrough filter object.
+    # Create a PassThrough filter object.
     passthrough_x = cloud_passthrough_1.make_passthrough_filter()
     # Assign axis and range to the passthrough filter object.
     # Here axis_min and max is the height with respect to the ground
@@ -239,8 +235,8 @@ Here I apply a unique color to each object's point cloud in order to be able to 
     cluster_cloud.from_list(color_cluster_point_list)
 ```
 
-### 3. Publish point clouds of individual items on a separate topic
-Befere publishing the cloud I have to convert it to ROS' PointCloud2 type:
+### 3. Publish point clouds of individual items 
+Before publishing the cloud of individual items on a separate topic I have to convert it to ROS' PointCloud2 type:
 
 ```python
     ## Convert PCL data to ROS messages (was TODO)
@@ -374,7 +370,7 @@ The script template file defines a function called pr2_mover() to load parameter
 In this step I complete the pr2_mover() function so that the appropriate fields that the “pick_place” rosservice requires to operate are filled.  
 Then I save that information as a yaml file that can be read by the ROS service.  
 
-### 1.  Calculate the object's centroid
+### 1.  Object's centroid
 In this step I calculated the average in x, y and z of the set of points belonging to the current object.
 But first, I verified that the predicted object's name was inside the pick up list.If the detected object is not in the pick-up list, the algorithm continues with other objects in the for loop.  
 In the case it is part of the pick-up list, the centroid is calculated and the script continues to prepare the data needed to write an output file as yaml file.
@@ -588,34 +584,15 @@ object_list:
 
 ```
 
-
-## Part 5: Complete Pick & Place (Extra Challenge)
-**Note: The robot is a bit moody at times and might leave objects on the table or fling them across the room :D**
-### 1. Publish a point cloud that MoveIt can use to create a collision map
-To create a collision map, publish a point cloud to the `/pr2/3d_map/points` topic and make sure you change the `point_cloud_topic` to `/pr2/3d_map/points` in `sensors.yaml` in the `/pr2_robot/config/` directory. This topic is read by Moveit!, which uses this point cloud input to generate a collision map, allowing the robot to plan its trajectory.  Keep in mind that later when you go to pick up an object, you must first remove it from this point cloud so it is removed from the collision map!
-### 2. Rotate the robot
-Rotate the robot to generate collision map of table sides. This can be accomplished by publishing joint angle value(in radians) to `/pr2/world_joint_controller/command`
-Then Rotate the robot back to its original state.
-
-### 3. Create a ROS Client for the “pick_place_routine” rosservice
-In the required steps above, you already created the messages you need to use this service. Checkout the [PickPlace.srv](https://github.com/udacity/RoboND-Perception-Project/tree/master/pr2_robot/srv) file to find out what arguments you must pass to this service.
-
-
-If everything was done correctly, when you pass the appropriate messages to the `pick_place_routine` service, the selected arm will perform pick and place operation and display trajectory in the RViz window
-Place all the objects from your pick list in their respective dropoff box and you have completed the challenge!
-
-
-## Future Improvements
-- write output file once and stop
-
-- Improove inverse kinematics, avoid swirling of arm, 
-- Improve logic of the gripper (e.g. use orientation data)
-- Use other detected model if not in pick up list,  use class membership probability estimates
-
-What did not work was to modify the SVM parameters to use a _rbf_ kernel function. Maybe with some more time to tweak it it could yield better results than the linear kernel used.
+## Part 5: Future Improvements
+- On the current version, the code has to loop over the complete pick list and execute a pick/place routine for each item before the yaml output file is written.
+- The inverse kinematics could be improved to avoid the swirling of the robot arm.
+- The logic of the gripper could be improved (e.g. make use of the orientation data).
+- If an object is erroneously detected and this can be confirmed because the detected object is not part of the pick up list, one could try to use the object with the second highest class score instead.
+- What did not work well was to modify the SVM parameters to use a _rbf_ kernel function instead of a _linear_ kernel function. Maybe with some more time to tweak it better one could obtain better results.
 
 ## Part 6: Setup Instructions
-### Instalation
+### Installation Guide
 For this setup, I asume that catkin_ws is the name of your ROS Workspace.
 
 Clone or download this repo into the src directory of your workspace:
@@ -652,9 +629,6 @@ You can run the project like this:
 $ cd ~/catkin_ws/src/RoboND-Perception-Project/pr2_robot/scripts
 $ roslaunch pr2_robot pick_place_project.launch
 ```
-
-
-
 Once Gazebo is up and running, make sure you see following in the gazebo world:
 - Robot
 - Table arrangement
