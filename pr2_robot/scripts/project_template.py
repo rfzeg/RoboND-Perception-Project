@@ -150,8 +150,9 @@ def pcl_callback(pcl_msg):
     cloud_objects = cloud_passthrough_2.extract(inliers, negative=True)
     
     ## Euclidean Clustering (was TODO)
-    white_cloud = XYZRGB_to_XYZ(cloud_objects) # Apply function to convert XYZRGB to XYZ
-    tree = white_cloud.make_kdtree()
+    # Apply function to convert XYZRGB to XYZ
+    white_cloud = XYZRGB_to_XYZ(cloud_objects) 
+    tree = white_cloud.make_kdtree() # returns a kd-tree
 
     # Perform the cluster extraction
     # Create a cluster extraction object
@@ -203,6 +204,7 @@ def pcl_callback(pcl_msg):
 
 # Exercise-3 TODOs:
 
+    ## Perform object recognition on these objects and assign them labels
     # Create some empty lists to receive labels and object point clouds
     detected_objects_labels = []
     detected_objects = []
